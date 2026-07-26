@@ -10,9 +10,60 @@ An interactive AI chatbot agent built using **LangGraph**, **LangChain**, **Mode
 - **Multi-Server MCP Adapter**: Connects seamlessly to external MCP servers over `stdio` using `langchain-mcp-adapters`.
   - **Chrome DevTools MCP**: Browser automation, snapshotting, page navigation, and DOM interaction.
   - **Filesystem MCP**: Local file system inspection and management.
-- **Custom Tool Integration**: Extensible with custom LangChain `@tool` functions (e.g., date-time utilities, async sleep/wait functions).
-- **Stateful Graph Architecture**: Powered by **LangGraph** (`StateGraph`, `ToolNode`, `tools_condition`, `InMemorySaver`) for session thread management and tool routing.
+- **Custom Tool Integration**: Easily extensible with custom LangChain `@tool` functions (e.g. date-time utilities, async sleep/wait functions).
+- **Stateful Graph & In-Memory Checkpointer**: Uses **LangGraph** (`StateGraph`, `ToolNode`, `tools_condition`, `InMemorySaver`) for thread-isolated state and message history persistence.
 - **FastAPI Streaming Backend**: Exposes `POST /api/chat` streaming Server-Sent Events (SSE) directly to the web UI.
+
+---
+
+## 🧠 Memory Architecture
+
+The agent uses **In-Memory Checkpointing (`InMemorySaver`)** provided by LangGraph:
+
+- **Checkpointer (`InMemorySaver`)**: Stores current thread state and message history in server memory (RAM), isolated per conversation session via `thread_id`.
+- **State Reducer (`add_messages`)**: Automatically appends new user messages, assistant responses, and MCP tool call outputs to the session history.
+- **Session Threading**: Pass `{"configurable": {"thread_id": "session-id"}}` to maintain separate conversation contexts across multiple sessions.
+
+---
+
+## 💡 Extensibility & Adding New Features
+
+`agent.py` is organized into **4 modular sections** so you can easily extend functionality:
+
+### 1. Adding a New Custom Python Tool (`SECTION 1`)
+Define your function with `@tool` and add it to `CUSTOM_TOOLS`:
+```python
+@tool
+def calculate_discount(price: float, percentage: float) -> str:
+    """Calculates final price after applying a percentage discount."""
+    discounted = price * (1 - percentage / 100)
+    return f"Discounted price: ${discounted:.2f}"
+
+CUSTOM_TOOLS = [get_date_time, wait, calculate_discount]
+```
+
+### 2. Adding a New MCP Server (`SECTION 2`)
+Add external stdio MCP server commands to `MCP_SERVERS`:
+```python
+MCP_SERVERS = {
+    "chrome": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "chrome-devtools-mcp@latest"],
+    },
+    "filesystem": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.expanduser("~/Downloads")],
+    },
+    # Example: Add SQLite MCP Server
+    "sqlite": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sqlite", "/path/to/db.sqlite"],
+    },
+}
+```
 
 ---
 
@@ -20,7 +71,7 @@ An interactive AI chatbot agent built using **LangGraph**, **LangChain**, **Mode
 
 ```text
 agents-wth-mcp-tools/
-├── agent.py                 # Modularized Python agent logic (LangGraph + MCP Client)
+├── agent.py                 # Modularized Python agent logic (4 Sections)
 ├── server.py                # FastAPI backend serving POST /api/chat (SSE streaming)
 ├── chatbot_with_mcp.ipynb   # Original Jupyter Notebook implementation
 ├── requirements.txt         # Required Python dependencies
@@ -41,9 +92,10 @@ agents-wth-mcp-tools/
 
 1. **Python 3.10+** (Python 3.11/3.12 recommended)
 2. **Node.js 18+ & `npm` / `npx`**: Required for Next.js frontend & launching external stdio MCP servers (`chrome-devtools-mcp` & `@modelcontextprotocol/server-filesystem`).
-3. **OpenAI API Key**:
+3. **OpenAI API Key**: Set your key in `.env`:
    ```bash
-   export OPENAI_API_KEY="your-openai-api-key"
+   OPENAI_API_KEY="your-openai-api-key"
+   OPENAI_MODEL="gpt-4o-mini"
    ```
 
 ---
@@ -79,13 +131,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to interact with your MCP agent.
-
----
-
-## 💡 Architecture & Extensibility
-
-- **Extending Tools**: To add a new tool or MCP server, edit `agent.py` and bind it to `all_tools`. The Next.js frontend automatically renders any newly triggered tool names and inputs/outputs.
-- **Extending UI**: Components are modularly structured in `frontend/src/components/` (`ToolCallBadge`, `ChatMessage`, `Header`, `ChatInput`).
 
 ---
 
