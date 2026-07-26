@@ -182,3 +182,5 @@ widgetsnbextension==4.0.15
 xxhash==3.7.0
 yarl==1.24.2
 zstandard==0.25.0
+fastapi>=0.110.0
+

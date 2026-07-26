@@ -1,17 +1,18 @@
-# AI Agent with Model Context Protocol (MCP) & LangGraph
+# AI Agent with Model Context Protocol (MCP), LangGraph & Next.js Frontend
 
-An interactive AI chatbot agent built using **LangGraph**, **LangChain**, and **Model Context Protocol (MCP)** tools. This repository demonstrates how to integrate multi-server MCP clients (such as Chrome DevTools and Filesystem MCP) alongside custom Python tools into an autonomous, stateful agent workflow.
+An interactive AI chatbot agent built using **LangGraph**, **LangChain**, **Model Context Protocol (MCP)** tools, and a modern **Next.js** web interface. This repository integrates multi-server MCP clients (such as Chrome DevTools and Filesystem MCP) alongside custom Python tools into an autonomous, stateful agent workflow.
 
 ---
 
 ## 🌟 Key Features
 
+- **Next.js Glassmorphic Web UI**: Modern dark theme with real-time SSE streaming responses and expandable tool execution cards.
 - **Multi-Server MCP Adapter**: Connects seamlessly to external MCP servers over `stdio` using `langchain-mcp-adapters`.
-  - **Chrome DevTools MCP**: Browser automation, snapshotting, page navigation, and element interaction.
+  - **Chrome DevTools MCP**: Browser automation, snapshotting, page navigation, and DOM interaction.
   - **Filesystem MCP**: Local file system inspection and management.
-- **Custom Tool Integration**: Easy extension with custom LangChain `@tool` functions (e.g., date-time utilities, async sleep/wait functions, screenshot extractors).
-- **Stateful Graph Architecture**: Uses **LangGraph** (`StateGraph`, `ToolNode`, `tools_condition`, `InMemorySaver`) for tool routing and conversation state persistence across turns.
-- **Interactive Execution Loop**: Features a notebook-ready interactive chat loop that prints tool calls and agent reasoning in real time.
+- **Custom Tool Integration**: Extensible with custom LangChain `@tool` functions (e.g., date-time utilities, async sleep/wait functions).
+- **Stateful Graph Architecture**: Powered by **LangGraph** (`StateGraph`, `ToolNode`, `tools_condition`, `InMemorySaver`) for session thread management and tool routing.
+- **FastAPI Streaming Backend**: Exposes `POST /api/chat` streaming Server-Sent Events (SSE) directly to the web UI.
 
 ---
 
@@ -19,9 +20,19 @@ An interactive AI chatbot agent built using **LangGraph**, **LangChain**, and **
 
 ```text
 agents-wth-mcp-tools/
-├── chatbot_with_mcp.ipynb   # Main Jupyter Notebook implementing the MCP LangGraph agent
+├── agent.py                 # Modularized Python agent logic (LangGraph + MCP Client)
+├── server.py                # FastAPI backend serving POST /api/chat (SSE streaming)
+├── chatbot_with_mcp.ipynb   # Original Jupyter Notebook implementation
 ├── requirements.txt         # Required Python dependencies
-└── README.md                # Project documentation
+├── README.md                # Project documentation
+└── frontend/                # Next.js App Router Web UI
+    ├── src/
+    │   ├── app/
+    │   │   ├── page.tsx     # Main Chat UI page
+    │   │   └── globals.css  # Dark glassmorphic styling
+    │   └── components/      # Header, ChatMessage, ToolCallBadge, ChatInput components
+    ├── package.json
+    └── next.config.ts
 ```
 
 ---
@@ -29,8 +40,8 @@ agents-wth-mcp-tools/
 ## 🛠️ Prerequisites
 
 1. **Python 3.10+** (Python 3.11/3.12 recommended)
-2. **Node.js & `npx`**: Required for launching external stdio MCP servers (`chrome-devtools-mcp` & `@modelcontextprotocol/server-filesystem`).
-3. **OpenAI API Key**: Set your API key in your environment or via `.env` file:
+2. **Node.js 18+ & `npm` / `npx`**: Required for Next.js frontend & launching external stdio MCP servers (`chrome-devtools-mcp` & `@modelcontextprotocol/server-filesystem`).
+3. **OpenAI API Key**:
    ```bash
    export OPENAI_API_KEY="your-openai-api-key"
    ```
@@ -39,54 +50,42 @@ agents-wth-mcp-tools/
 
 ## 🚀 Getting Started
 
-### 1. Clone the Repository & Set Up Virtual Environment
+### 1. Set Up Python Backend
 
 ```bash
-git clone https://github.com/TousifTamboli/agents-wth-mcp-tools.git
-cd agents-wth-mcp-tools
-
-# Create virtual environment
+# Activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-```
 
-### 2. Install Dependencies
-
-```bash
+# Install requirements
 pip install -r requirements.txt
+
+# Start FastAPI backend server (runs on http://localhost:8000)
+python3 server.py
 ```
 
-### 3. Launch Jupyter Notebook
+### 2. Start Next.js Frontend
+
+In a separate terminal:
 
 ```bash
-jupyter lab
-# Or use VS Code to open chatbot_with_mcp.ipynb
+cd frontend
+
+# Install frontend dependencies (if not already installed)
+npm install
+
+# Start Next.js dev server (runs on http://localhost:3000)
+npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to interact with your MCP agent.
 
 ---
 
-## 💡 How It Works
+## 💡 Architecture & Extensibility
 
-1. **Initialize LLM**: Configures `ChatOpenAI` (e.g. model `gpt-4o` / `gpt-4o-mini`).
-2. **Configure MultiServerMCPClient**:
-   ```python
-   from langchain_mcp_adapters.client import MultiServerMCPClient
-
-   client = MultiServerMCPClient({
-       "chrome": {
-           "transport": "stdio",
-           "command": "npx",
-           "args": ["-y", "chrome-devtools-mcp@latest"],
-       },
-       "filesystem": {
-           "transport": "stdio",
-           "command": "npx",
-           "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"],
-       },
-   })
-   ```
-3. **Bind Tools & Build Graph**: Combines MCP tools with custom tools into a LangGraph state graph.
-4. **Agent Execution**: Manages conversation history with `InMemorySaver` and executes tool calls conditionally via `tools_condition`.
+- **Extending Tools**: To add a new tool or MCP server, edit `agent.py` and bind it to `all_tools`. The Next.js frontend automatically renders any newly triggered tool names and inputs/outputs.
+- **Extending UI**: Components are modularly structured in `frontend/src/components/` (`ToolCallBadge`, `ChatMessage`, `Header`, `ChatInput`).
 
 ---
 
